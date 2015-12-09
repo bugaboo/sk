@@ -3,8 +3,10 @@
 #include <vector>
 #include <random>
 #include <cmath>
+#include <cassert>
 
 constexpr double J_mean = 0.0;
+constexpr double eps = 1e-10;
 
 class SKSimulation{
 #ifdef DEVBUG
@@ -24,7 +26,7 @@ class SKSimulation{
   std::vector<std::vector<double>> generate_exchange_matrix_(size_t n);
   std::vector<size_t> FindUnstable_();
   void Advance_(double H_end);
-  void StableAdvance_(int n_steps);
+  void StableAdvance_(double dtime);
   void Avalanche_();
   
   std::ostream &output_;
@@ -98,7 +100,7 @@ void SKSimulation::Initialize() {
 void SKSimulation::HysteresisLoop(const size_t loops_) {
   for (size_t loop = 0; loop < loops_; ++loop) {
     Advance_(H_max_);
-    Advance_(H_min_);
+//    Advance_(H_min_);
   }
 }
 
@@ -135,7 +137,7 @@ void SKSimulation::Advance_(double H_end) {
       std::cout << "Negative Advance!!\nFields:\t" << H_end << '\t' << H_ << '\n';
     }
 #endif
-    StableAdvance_((int)(min_field_to_flip / tau_) + 1);
+    StableAdvance_(min_field_to_flip + eps);
   }
   output_ << "End advance\n"; 
 }
@@ -169,11 +171,11 @@ std::vector<size_t> SKSimulation::FindUnstable_() {
   return ret;
 }
 
-void SKSimulation::StableAdvance_(int n_steps) {
+void SKSimulation::StableAdvance_(double dtime) {
 #ifdef DEVBUG
   output_ << "StableAdvance_\t";
 #endif
-  double delta_H = n_steps * tau_ * H_rate_;
+  double delta_H = dtime * H_rate_;
   H_ += delta_H;
   for (size_t i = 0; i < n_; ++i) {
     local_fields_[i] += delta_H;
@@ -194,11 +196,17 @@ void SKSimulation::Avalanche_() {
         min_index = unstable[i];
       }
     }
-    auto flipped = spins_[min_index];
-    m_ -= 2.0 * (double)flipped / n_;
-    spins_[min_index] *= -1;
     for (size_t i = 0; i < n_; ++i) {
-      local_fields_[i] += min * H_rate_ - 2 * flipped * J_[i][min_index];
+      local_fields_[i] += min * H_rate_;
+    }
+    if (local_fields_[min_index] * spins_[min_index] < 0.0) {
+      auto flipped = spins_[min_index];
+      m_ -= 2.0 * (double)flipped / n_;
+      spins_[min_index] *= -1;
+      for (size_t i = 0; i < n_; ++i) {
+        local_fields_[i] += - 2 * flipped * J_[i][min_index];
+      }
+      assert(local_fields_[min_index] * spins_[min_index] > 0.0);
     }
     H_ += min * H_rate_;
     output_ << H_ << '\t' << m_ << 
@@ -208,17 +216,17 @@ void SKSimulation::Avalanche_() {
       '\n';
     unstable = FindUnstable_();
   } while (unstable.size() > 0);
+  output_ << H_ << '\t' << 10 << '\n';
 #ifdef DEVBUG
   std::cout << "Leaving avalanche H=" << H_ << '\n';
 #endif
 }
 
-/*
+
 int main() {
   std::ofstream out("1.dat");
-  SKSimulation sim(10, 0.1, 0.001, out);
+  SKSimulation sim(300, 0.01, 0.0005, out);
   sim.Initialize();
-  sim.PrintJ();
   sim.HysteresisLoop(1);
 }
-*/
+
