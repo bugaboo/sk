@@ -11,22 +11,24 @@ class SKSimulation{
 #endif
  public:
   int a;
-  SKSimulation(size_t n, double tau, double H_rate, std::ostream &out = std::cout);
+  SKSimulation(size_t n, double tau, double H_rate, std::ostream &out = std::cout,
+                                                  std::ostream &avout = std::cout);
   SKSimulation(size_t n, double tau, double H_rate, std::vector<std::vector<double>> J,
-               std::ostream &outstream);
+               std::ostream &outstream, std::ostream &avout);
   void Initialize();
   void PrintJ();
   void HysteresisLoop(size_t loops);  
  private:
-  unsigned int Seed_();
-  void RecalculateLocalFields_();
-  std::vector<std::vector<double>> generate_exchange_matrix_(size_t n);
-  std::vector<size_t> FindUnstable_();
-  void Advance_(double H_end);
-  void StableAdvance_(int n_steps);
-  void Avalanche_();
+  unsigned int Seed();
+  void RecalculateLocalFields();
+  std::vector<std::vector<double>> generate_exchange_matrix(size_t n);
+  std::vector<size_t> FindUnstable();
+  void Advance(double H_end);
+  void StableAdvance(double delta_t);
+  void Avalanche();
   
   std::ostream &output_;
+  std::ostream &avalanche_output_;
   std::exponential_distribution<double> exp_distr_;
   std::mt19937 engine_;
   const std::vector<std::vector<double>> J_;                          // exchange constants J_{ij} / 2
